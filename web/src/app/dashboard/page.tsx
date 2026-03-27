@@ -35,6 +35,11 @@ interface ApiResponse {
   success: boolean;
   data: Transaction[];
   total?: number;
+  summary?: {
+    incomeTotal: number;
+    expenseTotal: number;
+    netTotal: number;
+  };
 }
 
 interface DashboardStats {
