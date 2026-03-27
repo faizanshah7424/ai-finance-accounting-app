@@ -2,6 +2,7 @@
 
 import { useState, ChangeEvent, FormEvent } from "react";
 import axios, { AxiosError } from "axios";
+import { getApiUrl } from "@/lib/api";
 
 interface TransactionFormData {
   description: string;
@@ -31,7 +32,11 @@ interface ApiResponse {
   };
 }
 
-export default function TransactionForm() {
+interface TransactionFormProps {
+  onTransactionAdded?: () => void;
+}
+
+export default function TransactionForm({ onTransactionAdded }: TransactionFormProps) {
   const [formData, setFormData] = useState<TransactionFormData>({
     description: "",
     amount: "",
@@ -71,13 +76,13 @@ export default function TransactionForm() {
       }
 
       const response = await axios.post<ApiResponse>(
-        "http://localhost:5000/api/transactions",
+        getApiUrl("/api/transactions"),
         requestData,
         {
           headers: {
             "Content-Type": "application/json",
           },
-          timeout: 10000,
+          timeout: 15000,
         }
       );
 
@@ -88,9 +93,15 @@ export default function TransactionForm() {
         date: new Date().toISOString().split("T")[0],
         type: "expense",
       });
+
+      // Notify parent component to refresh data
+      if (onTransactionAdded) {
+        onTransactionAdded();
+      }
     } catch (err) {
       if (err instanceof AxiosError) {
-        setError(err.response?.data?.message || "Failed to add transaction");
+        const message = err.response?.data?.message || err.response?.data?.error || "Failed to add transaction";
+        setError(message);
       } else if (err instanceof Error) {
         setError(err.message);
       } else {

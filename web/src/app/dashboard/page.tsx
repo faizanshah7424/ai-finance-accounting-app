@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import axios, { AxiosError } from "axios";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 import {
   PieChart,
   Pie,
@@ -97,10 +98,11 @@ export default function DashboardPage() {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [refreshKey]);
 
   const fetchTransactions = async () => {
     try {
@@ -108,30 +110,30 @@ export default function DashboardPage() {
       setError(null);
 
       const response = await axios.get<ApiResponse>(
-        "http://localhost:5000/api/transactions",
+        getApiUrl("/api/transactions"),
         {
-          timeout: 10000,
+          timeout: 15000,
         }
       );
 
       const data = response.data.data || [];
       setTransactions(data);
 
-      // Calculate stats
-      const totalIncome = data
+      // Use summary from API if available, otherwise calculate
+      const incomeTotal = response.data.summary?.incomeTotal || data
         .filter((t) => t.type === "income")
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const totalExpense = data
+      const expenseTotal = response.data.summary?.expenseTotal || data
         .filter((t) => t.type === "expense")
         .reduce((sum, t) => sum + t.amount, 0);
 
       const anomalyCount = data.filter((t) => t.metadata?.isAnomaly).length;
 
       setStats({
-        totalIncome,
-        totalExpense,
-        balance: totalIncome - totalExpense,
+        totalIncome: incomeTotal,
+        totalExpense: expenseTotal,
+        balance: incomeTotal - expenseTotal,
         transactionCount: data.length,
         anomalyCount,
       });
@@ -374,6 +376,27 @@ export default function DashboardPage() {
             <p className="text-gray-500 text-sm">
               Overview of your financial activity
             </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-sm font-medium rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-105"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Transaction
+            </Link>
+            <button
+              onClick={() => setRefreshKey((prev) => prev + 1)}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg transition-all shadow-md hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.058M5.058 17.947A9.004 9.004 0 013.09 12c0-4.97 4.03-9 9-9a8.997 8.997 0 018.063 5.05M19 14a5 5 0 01-5 5 5 5 0 01-4.742-3.343M15 19a9.004 9.004 0 01-7.947-5.05" />
+              </svg>
+              Refresh
+            </button>
           </div>
         </div>
 

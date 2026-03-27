@@ -14,7 +14,7 @@ const analyzeTransaction = async (description, amount) => {
   try {
     console.log('🤖 Calling AI service:', `${ANALYSIS_API_URL}/analyze`);
     console.log('📝 Data:', { description, amount });
-    
+
     const response = await axios.post(`${ANALYSIS_API_URL}/analyze`, {
       description,
       amount,
@@ -22,7 +22,7 @@ const analyzeTransaction = async (description, amount) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 5000,
+      timeout: 15000,
     });
 
     console.log('✅ AI Response:', response.data);
@@ -30,11 +30,11 @@ const analyzeTransaction = async (description, amount) => {
   } catch (error) {
     console.error('❌ AI Analysis Service Error:', error.message);
     console.error('Response:', error.response?.data);
-    
+
     // Return default values if AI service is unavailable
     return {
       predicted_category: {
-        category: 'Uncategorized',
+        category: 'General',
         confidence: 0,
         matched_keywords: [],
       },

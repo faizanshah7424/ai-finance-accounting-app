@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import axios, { AxiosError } from "axios";
 import Link from "next/link";
+import { getApiUrl } from "@/lib/api";
 
 interface Transaction {
   _id: string;
@@ -50,10 +51,11 @@ export default function TransactionsPage() {
   // Sorting
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [refreshKey]);
 
   const fetchTransactions = async () => {
     try {
@@ -61,8 +63,8 @@ export default function TransactionsPage() {
       setError(null);
 
       const response = await axios.get<ApiResponse>(
-        "http://localhost:5000/api/transactions",
-        { timeout: 10000 }
+        getApiUrl("/api/transactions"),
+        { timeout: 15000 }
       );
 
       setTransactions(response.data.data || []);
@@ -88,7 +90,7 @@ export default function TransactionsPage() {
       setDeletingId(id);
       setError(null);
 
-      await axios.delete(`http://localhost:5000/api/transactions/${id}`, {
+      await axios.delete(getApiUrl(`/api/transactions/${id}`), {
         timeout: 10000,
       });
 
@@ -183,15 +185,36 @@ export default function TransactionsPage() {
               Manage and track all your financial activities
             </p>
           </div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-300 shadow-sm hover:shadow-md hover:scale-105"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Add Transaction
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-lg hover:scale-105"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </Link>
+            <button
+              onClick={() => setRefreshKey((prev) => prev + 1)}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.058M5.058 17.947A9.004 9.004 0 013.09 12c0-4.97 4.03-9 9-9a8.997 8.997 0 018.063 5.05M19 14a5 5 0 01-5 5 5 5 0 01-4.742-3.343M15 19a9.004 9.004 0 01-7.947-5.05" />
+              </svg>
+              Refresh
+            </button>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-lg hover:scale-105"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Transaction
+            </Link>
+          </div>
         </div>
 
         {/* Stats Cards */}
