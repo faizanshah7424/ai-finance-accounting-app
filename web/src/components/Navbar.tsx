@@ -39,6 +39,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isActive = (href: string) => {
+    if (!pathname) return false;
     if (href === "/") {
       return pathname === "/";
     }

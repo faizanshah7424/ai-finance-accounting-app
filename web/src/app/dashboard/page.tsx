@@ -160,7 +160,7 @@ export default function DashboardPage() {
       // Process monthly data for bar chart
       const monthlyMap = new Map<
         string,
-        { income: number; expense: number }
+        { income: number; expense: number; month: string }
       >();
 
       data.forEach((t) => {
@@ -752,10 +752,10 @@ export default function DashboardPage() {
                       width={60}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      verticalAlign="top" 
+                    <Legend
+                      verticalAlign="top"
                       height={40}
-                      iconType="roundedSquare"
+                      iconType="circle"
                       content={({ payload }) => (
                         <div className="flex justify-center gap-6 mb-2">
                           {payload?.map((entry: any, index: number) => (

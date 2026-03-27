@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del *)",
+      "Bash(rmdir *)",
+      "Bash(npm run *)",
+      "Bash(wmic *)",
+      "Bash(npm install *)"
+    ]
+  },
+  "$version": 3
+}
