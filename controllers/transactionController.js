@@ -8,31 +8,56 @@ const ANALYSIS_API_URL = process.env.ANALYSIS_API_URL || 'http://127.0.0.1:8000'
  * Call FastAPI AI service to analyze transaction
  * @param {string} description - Transaction description
  * @param {number} amount - Transaction amount
+ * @param {string|Date} date - Transaction date (ISO string or Date object)
  * @returns {Promise<Object>} AI analysis result
  */
-const analyzeTransaction = async (description, amount) => {
+const analyzeTransaction = async (description, amount, date) => {
+  const endpoint = `${ANALYSIS_API_URL}/analyze`;
+  
   try {
-    console.log('🤖 Calling AI service:', `${ANALYSIS_API_URL}/analyze`);
-    console.log('📝 Data:', { description, amount });
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('🤖 AI SERVICE CALL');
+    console.log('   Endpoint:', endpoint);
+    console.log('   Method: POST');
+    console.log('   Payload:', JSON.stringify({ description, amount, date }, null, 2));
+    console.log('═══════════════════════════════════════════════════════');
 
-    const response = await axios.post(`${ANALYSIS_API_URL}/analyze`, {
+    const response = await axios.post(endpoint, {
       description,
       amount,
+      date: date ? new Date(date).toISOString() : new Date().toISOString(),
     }, {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 15000,
+      timeout: 20000, // 20 seconds timeout
     });
 
-    console.log('✅ AI Response:', response.data);
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('✅ AI RESPONSE RECEIVED');
+    console.log('   Status:', response.status);
+    console.log('   Data:', JSON.stringify(response.data, null, 2));
+    console.log('═══════════════════════════════════════════════════════');
+
     return response.data;
   } catch (error) {
-    console.error('❌ AI Analysis Service Error:', error.message);
-    console.error('Response:', error.response?.data);
+    console.log('═══════════════════════════════════════════════════════');
+    console.error('❌ AI SERVICE ERROR');
+    console.error('   Endpoint:', endpoint);
+    console.error('   Error Type:', error.code || error.name);
+    console.error('   Message:', error.message);
+    if (error.response) {
+      console.error('   Status:', error.response.status);
+      console.error('   Response Data:', JSON.stringify(error.response.data, null, 2));
+    } else if (error.request) {
+      console.error('   No response received - check if AI service is running');
+      console.error('   Request:', error.request);
+    }
+    console.error('═══════════════════════════════════════════════════════');
 
     // Return default values if AI service is unavailable
     return {
+      success: false,
       predicted_category: {
         category: 'General',
         confidence: 0,
@@ -40,9 +65,10 @@ const analyzeTransaction = async (description, amount) => {
       },
       anomaly: {
         is_anomaly: false,
-        reason: 'AI service unavailable - ' + error.message,
+        reason: `AI service unavailable - ${error.message}`,
         severity: 'low',
       },
+      error: error.message,
     };
   }
 };
@@ -62,29 +88,45 @@ const addTransaction = async (req, res, next) => {
       });
     }
 
-    // Call AI service to analyze transaction
-    const analysisResult = await analyzeTransaction(description, parseFloat(amount));
+    const transactionAmount = parseFloat(amount);
+    const transactionDate = date || new Date();
 
-    // Extract AI analysis data
-    const predictedCategory = analysisResult.predicted_category?.category || 'Uncategorized';
-    const confidence = analysisResult.predicted_category?.confidence || 0;
-    const isAnomaly = analysisResult.anomaly?.is_anomaly || false;
-    const anomalySeverity = analysisResult.anomaly?.severity || 'low';
+    console.log('📥 ADD TRANSACTION REQUEST');
+    console.log('   Description:', description);
+    console.log('   Amount:', transactionAmount);
+    console.log('   Date:', transactionDate);
+    console.log('   Type:', type || 'expense');
+
+    // Call AI service to analyze transaction
+    const analysisResult = await analyzeTransaction(description, transactionAmount, transactionDate);
+
+    // Extract AI analysis data with safe optional chaining
+    const predictedCategory = analysisResult?.predicted_category?.category || 'General';
+    const confidence = analysisResult?.predicted_category?.confidence || 0;
+    const isAnomaly = analysisResult?.anomaly?.is_anomaly || false;
+    const anomalySeverity = analysisResult?.anomaly?.severity || 'low';
+    const matchedKeywords = analysisResult?.predicted_category?.matched_keywords || [];
+
+    console.log('📊 AI ANALYSIS RESULT');
+    console.log('   Category:', predictedCategory);
+    console.log('   Confidence:', confidence);
+    console.log('   Matched Keywords:', matchedKeywords.join(', ') || 'none');
+    console.log('   Is Anomaly:', isAnomaly);
 
     // Prepare transaction data with AI-enriched fields
     const transactionData = {
       description: description.trim(),
-      amount: parseFloat(amount),
-      date: date || new Date(),
+      amount: transactionAmount,
+      date: transactionDate,
       type: type || 'expense',
       category: predictedCategory,
       accountId: accountId || null,
       metadata: {
         analysisConfidence: confidence,
-        matchedKeywords: analysisResult.predicted_category?.matched_keywords || [],
-        isAnomaly: isAnomaly,
-        anomalyReason: analysisResult.anomaly?.reason || '',
-        anomalySeverity: anomalySeverity,
+        matchedKeywords,
+        isAnomaly,
+        anomalyReason: analysisResult?.anomaly?.reason || '',
+        anomalySeverity,
         analyzedAt: new Date().toISOString(),
       },
     };
@@ -96,6 +138,10 @@ const addTransaction = async (req, res, next) => {
     const populatedTransaction = await Transaction.findById(transaction._id)
       .populate('accountId', 'accountName accountNumber');
 
+    console.log('✅ TRANSACTION CREATED');
+    console.log('   ID:', transaction._id);
+    console.log('   Category Assigned:', predictedCategory);
+
     return res.status(201).json({
       success: true,
       message: 'Transaction added successfully with AI analysis',
@@ -105,6 +151,7 @@ const addTransaction = async (req, res, next) => {
         confidence,
         isAnomaly,
         anomalySeverity,
+        matchedKeywords,
       },
     });
   } catch (error) {
@@ -218,17 +265,18 @@ const updateTransaction = async (req, res, next) => {
     if (req.body.description || req.body.amount) {
       const description = req.body.description || transaction.description;
       const amount = req.body.amount || transaction.amount;
+      const date = req.body.date || transaction.date;
 
-      const analysisResult = await analyzeTransaction(description, parseFloat(amount));
+      const analysisResult = await analyzeTransaction(description, parseFloat(amount), date);
 
-      req.body.category = analysisResult.predicted_category?.category || transaction.category;
+      req.body.category = analysisResult?.predicted_category?.category || transaction.category;
       req.body.metadata = {
         ...transaction.metadata,
-        analysisConfidence: analysisResult.predicted_category?.confidence || 0,
-        matchedKeywords: analysisResult.predicted_category?.matched_keywords || [],
-        isAnomaly: analysisResult.anomaly?.is_anomaly || false,
-        anomalyReason: analysisResult.anomaly?.reason || '',
-        anomalySeverity: analysisResult.anomaly?.severity || 'low',
+        analysisConfidence: analysisResult?.predicted_category?.confidence || 0,
+        matchedKeywords: analysisResult?.predicted_category?.matched_keywords || [],
+        isAnomaly: analysisResult?.anomaly?.is_anomaly || false,
+        anomalyReason: analysisResult?.anomaly?.reason || '',
+        anomalySeverity: analysisResult?.anomaly?.severity || 'low',
         analyzedAt: new Date().toISOString(),
       };
     }
